@@ -116,3 +116,8 @@ The plugin will iterate through `document.styleSheets` and:
 ## 7. Known Constraints
 * **Fonts:** System fonts are assumed. Custom `.woff2` files stored inside the vault will not be embedded in v1.0.
 * **Interactivity:** Clickable elements that require the Obsidian internal event bus (like internal wikilinks) will be rendered as standard HTML anchors but may not resolve correctly offline.
+
+## 8. Decision Log
+- **Decision:** Use an rsync-based script (`sync-public.sh`) to publish releases to the public GitHub repository while maintaining an isolated private repository server.
+  - **Rationale:** Protects the `.agent` history and other private files from entering the public namespace. The script auto-commits changes, checks the `manifest.json` version, and pushes a semver Git tag (`vX.Y.Z`) on new versions to trigger a GitHub Action release (`release.yml`). `2html-dev-vault` will be included in the public sync.
+  - **Status:** Accepted

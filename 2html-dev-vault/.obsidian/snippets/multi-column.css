@@ -1,0 +1,14 @@
+/* Basic test multi-column snippet for the vault */
+.markdown-reading-view .markdown-rendered .callout[data-callout-metadata*="multi-column"] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1em;
+}
+
+.markdown-reading-view .markdown-rendered .callout[data-callout-metadata*="multi-column"] .callout-content {
+    display: contents;
+}
+
+.markdown-reading-view .markdown-rendered .callout[data-callout-metadata*="multi-column"] .callout-content > * {
+    flex: 1 1 300px;
+}
