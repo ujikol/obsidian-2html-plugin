@@ -24,7 +24,7 @@ jobs:
         id: build
         run: |
           npm install
-          npm run build
+          node esbuild.config.mjs production
           mkdir ${{ env.PLUGIN_NAME }}
           cp main.js manifest.json ${{ env.PLUGIN_NAME }}
           if [ -f styles.css ]; then cp styles.css ${{ env.PLUGIN_NAME }}; fi
