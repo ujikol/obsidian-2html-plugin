@@ -1,0 +1,10 @@
+{
+  "id": "obsidian-2html-plugin",
+  "name": "2HTML",
+  "version": "1.0.0",
+  "minAppVersion": "1.5.0",
+  "description": "Export Obsidian notes or selections to self-contained HTML files identical to Reading View.",
+  "author": "m",
+  "authorUrl": "",
+  "isDesktopOnly": true
+}

@@ -1,0 +1,30 @@
+{
+  "name": "obsidian-2html-plugin",
+  "version": "1.0.0",
+  "description": "Export Obsidian notes or selections to self-contained HTML files identical to Reading View.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs && obsidian reload",
+    "build": "node esbuild.config.mjs production && obsidian reload",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "html",
+    "export"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jsdom": "^21.1.6",
+    "@types/node": "^18.11.9",
+    "builtin-modules": "^5.0.0",
+    "esbuild": "0.17.3",
+    "jsdom": "^24.0.0",
+    "obsidian": "^1.5.0",
+    "tslib": "^2.4.0",
+    "typescript": "^4.9.5",
+    "vitest": "^1.4.0"
+  }
+}

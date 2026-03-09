@@ -1,0 +1,22 @@
+node_modules/
+main.js
+
+# Obsidian Development Vault
+# We want to keep notes, settings, and snippets.
+# We DO NOT want to keep community plugin binaries or our own build output in the vault
+2html-dev-vault/.obsidian/plugins/*/
+!2html-dev-vault/.obsidian/plugins/
+
+# But we do want to commit the settings for those plugins if they exist
+!2html-dev-vault/.obsidian/plugins/*/*.json
+2html-dev-vault/.obsidian/plugins/*/main.js
+2html-dev-vault/.obsidian/plugins/*/manifest.json
+2html-dev-vault/.obsidian/plugins/*/styles.css
+
+# Exclude generated exports
+*- Export.html
+*.html
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
