@@ -1,14 +1,53 @@
 // DOM reading and handling logic
 
-import { App, MarkdownView } from 'obsidian';
+import { App, MarkdownView, MarkdownRenderer, Component } from 'obsidian';
 
-export async function getTargetDOM(app: App): Promise<HTMLElement | null> {
+export async function getTargetDOM(app: App, customSelection?: string): Promise<HTMLElement | null> {
 	// Find reading view or selection
 	const activeView = app.workspace.getActiveViewOfType(MarkdownView);
 	if (!activeView) return null;
 
 	const state = activeView.getState();
 	const wasSource = state.mode === 'source';
+
+	// Handle selection
+	const editorSelection = activeView.editor?.getSelection();
+	const hasEditorSelection = wasSource && editorSelection && editorSelection.trim().length > 0;
+	const windowSelection = window.getSelection();
+	const hasWindowSelection = !wasSource && !customSelection && windowSelection && windowSelection.rangeCount > 0 && windowSelection.toString().trim().length > 0;
+
+	if (customSelection || hasEditorSelection) {
+		const textToRender = customSelection || editorSelection!;
+		const tempContainer = document.createElement('div');
+		tempContainer.className = 'markdown-rendered';
+		
+		// Append to DOM so plugins like Mermaid can calculate bounds and render
+		tempContainer.style.position = 'absolute';
+		tempContainer.style.top = '-9999px';
+		tempContainer.style.left = '-9999px';
+		tempContainer.style.width = '800px'; 
+		document.body.appendChild(tempContainer);
+
+		const comp = new Component();
+		comp.load();
+		await MarkdownRenderer.render(app, textToRender, tempContainer, activeView.file?.path || "", comp);
+		
+		// Wait for async rendering (Mermaid, Dataview, etc)
+		await new Promise(resolve => setTimeout(resolve, 1500));
+
+		const result = tempContainer.cloneNode(true) as HTMLElement;
+		result.removeAttribute('style');
+		
+		tempContainer.remove();
+		comp.unload();
+
+		return result;
+	} else if (hasWindowSelection) {
+		const tempContainer = document.createElement('div');
+		tempContainer.className = 'markdown-rendered';
+		tempContainer.appendChild(windowSelection!.getRangeAt(0).cloneContents());
+		return tempContainer;
+	}
 
 	// Inject CSS to force full render & disable culling
 	const styleEl = document.createElement('style');

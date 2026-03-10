@@ -19,9 +19,15 @@ The plugin is architecturally modeled after the "DOM-copy" approach found in [ob
 
 ### 4.1 Functional Requirements
 * **Trigger:** A Command Palette entry: `2HTML: Export current note to HTML`.
+* **Plugin API:** The plugin exposes an API accessible via `app.plugins.plugins['obsidian-2html-plugin'].api`.
+    * `exportToHTML(options?: ExportOptions): Promise<void | string>`
+    * It allows programmatic execution of exports with optional overrides:
+        * `path`: Direct output path. If provided, the confirmation modal is skipped. If omitted, the HTML string is returned and no file is created.
+        * `properties`: `null` to exclude all properties, `string[]` to export only specific properties. If `undefined`, falls back to user settings.
+        * `selectionStart` and `selectionEnd`: Character offsets in the markdown file to export a specific text range. If provided, overrides active text selection.
 * **View State Handling:** The export requires a fully rendered Reading View DOM. If triggered while in "Live Preview", the plugin must temporarily switch the view to "Reading View", await complete DOM rendering, execute the capture, and seamlessly switch back to "Live Preview".
 * **Scope Detection:**
-    * *Text Selection:* Clone only the selected DOM nodes. **Crucial:** The plugin must traverse up the DOM to wrap partial selections in their immediate parent block-level elements (e.g., ensuring selected `<li>` elements are properly enclosed in a `<ul>` or `<ol>`) to prevent malformed HTML.
+    * *Text Selection:* Extract the selected markdown and render it directly using `MarkdownRenderer.render`. This natively guarantees well-formed HTML (e.g., correctly wrapping list items) without fragile DOM traversal.
     * *No Selection:* Clone the entire `.markdown-reading-view` container.
 * **Frontmatter Export:**
     * The header "Properties" above frontmatter shall never be exported.
@@ -118,3 +124,27 @@ The plugin will iterate through `document.styleSheets` and:
 * **Interactivity:** Clickable elements that require the Obsidian internal event bus (like internal wikilinks) will be rendered as standard HTML anchors but may not resolve correctly offline.
 
 ## 8. Decision Log
+
+- **Decision:** Use `MarkdownRenderer.render` for selection export instead of raw DOM cloning.
+  - **Rationale:** Ensures clean, well-formed HTML without complex DOM traversal or view switching that clears the selection.
+  - **Status:** Accepted
+
+- **Decision:** Add keyboard submission (Enter) to the export modal.
+  - **Rationale:** Improves user experience by allowing quick confirmation via keyboard instead of requiring a mouse click.
+  - **Status:** Accepted
+
+- **Decision:** Resolve Editor vs Reading View selection modes distinctly.
+  - **Rationale:** The editor selection yields markdown sources (which are re-rendered cleanly via API), while Reading View selection (via `window.getSelection()`) yields rendered DOM directly. Mixing them caused plain text to be re-rendered as markdown, breaking Reading View selections.
+  - **Status:** Accepted
+
+- **Decision:** Attach selection render temp container to `document.body` and wait.
+  - **Rationale:** Async block parsers (like Mermaid) require their target DOM element to actually be attached to the active document and visible (even if offscreen) to calculate bounding boxes and correctly render SVG dimensions before the clone can be extracted.
+  - **Status:** Accepted
+
+- **Decision:** Expose a programmatic Plugin API (`api.exportToHTML`) with `options.path` triggering "return HTML" if omitted.
+  - **Rationale:** Encourages interoperability allowing other plugins to trigger customized HTML exports with specific paths, properties filtering, and subset selection bounds entirely unattended. By omitting the path, external scripts can grab the rendered HTML without Disk I/O.
+  - **Status:** Accepted
+
+- **Decision:** Override `user-select` styles on `body` and layout containers in exported HTML to allow text selection.
+  - **Rationale:** Obsidian implicitly applies `user-select: none` to the app container to behave like a native app. This styling cascades to the exported HTML and prevents users from copying text from the generated file. Forcing `user-select: text` on the structural containers resolves this.
+  - **Status:** Accepted

@@ -2,13 +2,21 @@ import { Plugin, Notice, normalizePath, TFile, FileSystemAdapter } from 'obsidia
 import { exportNoteToHTML } from './htmlBuilder';
 import { HTML2PluginSettings, DEFAULT_SETTINGS, HTML2SettingTab } from './settings';
 import { ExportModal } from './exportModal';
+import { HTML2PluginAPI, ExportOptions } from './api';
 import * as path from 'path';
 
 export default class HTML2Plugin extends Plugin {
 	settings: HTML2PluginSettings;
+	api: HTML2PluginAPI;
 
 	async onload() {
 		await this.loadSettings();
+
+		this.api = {
+			exportToHTML: async (options?: ExportOptions) => {
+				await this.exportViaAPI(options);
+			}
+		};
 
 		this.addSettingTab(new HTML2SettingTab(this.app, this));
 
@@ -91,10 +99,58 @@ export default class HTML2Plugin extends Plugin {
 		}
 	}
 
-	async executeExport(title: string, path: string, exportProperties: boolean, frontmatter: any) {
+	async exportViaAPI(options?: ExportOptions) {
 		try {
-			await exportNoteToHTML(this.app, title, path, exportProperties, frontmatter);
-			new Notice(`Successfully exported to HTML: ${path}`);
+			const activeFile = this.app.workspace.getActiveFile();
+			if (!activeFile) {
+				new Notice("No active file found to export.");
+				return;
+			}
+
+			const cache = this.app.metadataCache.getFileCache(activeFile);
+			const frontmatter = cache?.frontmatter;
+
+			let customSelection: string | undefined;
+			if (options && typeof options.selectionStart === 'number' && typeof options.selectionEnd === 'number') {
+				const fileContent = await this.app.vault.read(activeFile);
+				customSelection = fileContent.substring(options.selectionStart, options.selectionEnd);
+			}
+
+			let exportProperties: boolean | string[] | null = this.settings.exportProperties;
+			if (options && options.properties !== undefined) {
+				exportProperties = options.properties;
+			}
+
+			let targetPath: string | undefined = undefined;
+			if (options && options.path !== undefined) {
+				targetPath = options.path;
+			} else if (!options || !('path' in options)) {
+				// Only default if 'path' wasn't intentionally omitted (e.g. they called it without options)
+				// Wait, if they omit it in ExportOptions, we should just not write to a file
+				// The spec says: "If omitted, the HTML string is returned and no file is created."
+				targetPath = undefined;
+			}
+
+			if (targetPath !== undefined && !targetPath.toLowerCase().endsWith('.html')) {
+				targetPath += '.html';
+			}
+
+			return await this.executeExport(activeFile.basename, targetPath, exportProperties, frontmatter, customSelection);
+		} catch (error) {
+			console.error("Export via API Error:", error);
+			new Notice(`Export failed: ${error.message}`);
+		}
+	}
+
+	async executeExport(title: string, path: string | undefined, exportProperties: boolean | string[] | null, frontmatter: any, customSelection?: string): Promise<string | void> {
+		try {
+			const html = await exportNoteToHTML(this.app, title, path, exportProperties, frontmatter, customSelection);
+			if (path !== undefined) {
+				new Notice(`Successfully exported to HTML: ${path}`);
+				return;
+			} else {
+				return html;
+			}
 		} catch (error) {
 			console.error("Export failed:", error);
 			new Notice(`Export failed: ${error.message}`);

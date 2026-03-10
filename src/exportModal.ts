@@ -15,6 +15,14 @@ export class ExportModal extends Modal {
 	onOpen() {
 		const { contentEl } = this;
 
+		contentEl.addEventListener("keydown", (e: KeyboardEvent) => {
+			if (e.key === "Enter") {
+				e.preventDefault();
+				this.close();
+				this.onSubmit(this.resultPath, this.exportProperties);
+			}
+		});
+
 		contentEl.createEl("h1", { text: "Export note to HTML" });
 
 		new Setting(contentEl)

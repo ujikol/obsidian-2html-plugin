@@ -5,8 +5,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 
-export async function exportNoteToHTML(app: App, targetName: string, exportPath: string, exportProperties: boolean, frontmatter: any) {
-    const targetDOM = await getTargetDOM(app);
+export async function exportNoteToHTML(app: App, targetName: string, exportPath: string | undefined, exportProperties: boolean | string[] | null, frontmatter: any, customSelection?: string): Promise<string> {
+    const targetDOM = await getTargetDOM(app, customSelection);
     if (!targetDOM) {
         throw new Error("Could not find a rendered DOM context to export. Ensure you are in Reading View or have the note open.");
     }
@@ -32,20 +32,28 @@ export async function exportNoteToHTML(app: App, targetName: string, exportPath:
             }
         });
 
-        if (!exportProperties) {
-            const exportPropsProp = frontmatter?.['export_properties'];
+        if (exportProperties === null) {
+            metadataContainer.remove();
+        } else if (exportProperties !== true) {
             let propertiesToKeep: string[] = [];
 
-            if (exportPropsProp) {
-                if (Array.isArray(exportPropsProp)) {
-                    propertiesToKeep = exportPropsProp.map(p => String(p).toLowerCase());
-                } else if (typeof exportPropsProp === 'string') {
-                    propertiesToKeep = exportPropsProp.split(',').map(p => p.trim().toLowerCase());
+            if (Array.isArray(exportProperties)) {
+                propertiesToKeep = exportProperties.map(p => String(p).toLowerCase());
+            } else {
+                const exportPropsProp = frontmatter?.['export_properties'];
+                if (exportPropsProp) {
+                    if (Array.isArray(exportPropsProp)) {
+                        propertiesToKeep = exportPropsProp.map(p => String(p).toLowerCase());
+                    } else if (typeof exportPropsProp === 'string') {
+                        propertiesToKeep = exportPropsProp.split(',').map(p => p.trim().toLowerCase());
+                    }
                 }
             }
 
-            if (propertiesToKeep.length === 0) {
+            if (propertiesToKeep.length === 0 && !Array.isArray(exportProperties)) {
                 // 6. If there is no "export_properties" property or it is empty then export no frontmatter.
+                metadataContainer.remove();
+            } else if (propertiesToKeep.length === 0 && Array.isArray(exportProperties)) {
                 metadataContainer.remove();
             } else {
                 // 5. If off then export only the properties listed in the "export_properties" excluding that property itself.
@@ -85,16 +93,22 @@ export async function exportNoteToHTML(app: App, targetName: string, exportPath:
         margin: 0;
         padding: 0;
         overflow: auto !important;
+        -webkit-user-select: text !important;
+        user-select: text !important;
     }
     .app-container, .horizontal-main-container, .workspace, .workspace-split, .workspace-leaf, .workspace-leaf-content, .view-content {
         height: 100%;
         width: 100%;
+        -webkit-user-select: text !important;
+        user-select: text !important;
     }
     .markdown-reading-view {
         height: 100%;
         width: 100%;
         overflow-y: auto !important;
         padding: 2em; /* Ensure some breathing room */
+        -webkit-user-select: text !important;
+        user-select: text !important;
     }
     </style>
     <style>${css}</style>
@@ -123,43 +137,47 @@ export async function exportNoteToHTML(app: App, targetName: string, exportPath:
 </html>`;
 
     // Save out
-    let finalPath = exportPath;
+    if (exportPath !== undefined) {
+        let finalPath = exportPath;
 
-    // Expand ~ to user home directory
-    if (finalPath.startsWith('~/') || finalPath.startsWith('~\\')) {
-        finalPath = path.join(os.homedir(), finalPath.slice(2));
-    }
-
-    if (path.isAbsolute(finalPath)) {
-        // Absolute system path => use Node fs
-        const dir = path.dirname(finalPath);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        await fs.promises.writeFile(finalPath, completeHTML, 'utf8');
-    } else {
-        // Vault-relative path => use Obsidian API
-        let vaultPath = normalizePath(finalPath);
-        if (vaultPath.startsWith('/')) {
-            vaultPath = vaultPath.substring(1);
+        // Expand ~ to user home directory
+        if (finalPath.startsWith('~/') || finalPath.startsWith('~\\')) {
+            finalPath = path.join(os.homedir(), finalPath.slice(2));
         }
 
-        const existingFile = app.vault.getAbstractFileByPath(vaultPath);
-        if (existingFile) {
-            await app.vault.delete(existingFile);
-        }
-        
-        // Ensure parent folders exist
-        const folders = vaultPath.split('/');
-        let currentPath = '';
-        
-        for (let i = 0; i < folders.length - 1; i++) {
-            currentPath += (currentPath === '' ? '' : '/') + folders[i];
-            if (!app.vault.getAbstractFileByPath(currentPath)) {
-                await app.vault.createFolder(currentPath);
+        if (path.isAbsolute(finalPath)) {
+            // Absolute system path => use Node fs
+            const dir = path.dirname(finalPath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
             }
-        }
+            await fs.promises.writeFile(finalPath, completeHTML, 'utf8');
+        } else {
+            // Vault-relative path => use Obsidian API
+            let vaultPath = normalizePath(finalPath);
+            if (vaultPath.startsWith('/')) {
+                vaultPath = vaultPath.substring(1);
+            }
 
-        await app.vault.create(vaultPath, completeHTML);
+            const existingFile = app.vault.getAbstractFileByPath(vaultPath);
+            if (existingFile) {
+                await app.vault.delete(existingFile);
+            }
+            
+            // Ensure parent folders exist
+            const folders = vaultPath.split('/');
+            let currentPath = '';
+            
+            for (let i = 0; i < folders.length - 1; i++) {
+                currentPath += (currentPath === '' ? '' : '/') + folders[i];
+                if (!app.vault.getAbstractFileByPath(currentPath)) {
+                    await app.vault.createFolder(currentPath);
+                }
+            }
+
+            await app.vault.create(vaultPath, completeHTML);
+        }
     }
+
+    return completeHTML;
 }
